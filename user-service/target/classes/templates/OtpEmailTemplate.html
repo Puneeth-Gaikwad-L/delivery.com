@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTP Design</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f7f7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            background-color: white;
+            padding: 20px 40px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+        .icon {
+            background-color: #ffecd1;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto 20px;
+        }
+        .icon img {
+            width: 30px;
+            height: 30px;
+        }
+        h1 {
+            font-size: 18px;
+            color: #333;
+            margin: 0 0 10px;
+        }
+        p {
+            color: #666;
+            margin: 0 0 20px;
+        }
+        .otp {
+            font-size: 48px;
+            font-weight: bold;
+            color: #333;
+            margin: 0 0 10px;
+        }
+        .validity {
+            color: #ff6666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="icon">
+        <img src="" alt="TalentHub Icon">
+    </div>
+    <h1>Here is your One Time Password</h1>
+    <p>to validate your email address</p>
+    <div class="otp" th:text="${otp}"></div>
+    <div class="validity">Valid for 3 minutes only</div>
+</div>
+</body>
+</html>
