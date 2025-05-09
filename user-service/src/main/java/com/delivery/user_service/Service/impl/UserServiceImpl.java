@@ -79,9 +79,11 @@ public class UserServiceImpl implements UserService {
         users.setPhoneNumber(signUpRequestDTO.getPhoneNumber());
 
         Users savedUser = userRepository.save(users);
+        int otp = generateSixDigitCode();
 
+        // Store OTP in Redis with 3 minutes expiration
+        redisTemplate.opsForValue().set(savedUser.getUserEmailId(), String.valueOf(otp), 3, TimeUnit.MINUTES);
         try {
-            sendOTP(savedUser.getUserEmailId());
             responseDTO.setResponseCode("VOTP");
             responseDTO.setMessage("Verification OTP sent Successfully");
             responseDTO.setSuccess(true);
@@ -156,7 +158,6 @@ public class UserServiceImpl implements UserService {
             return new ResponseEntity<>(responseDTO, HttpStatus.FORBIDDEN);
         }
         try{
-            sendOTP(email);
             responseDTO.setMessage("User logged in successfully");
             responseDTO.setSuccess(true);
             responseDTO.setResponseCode("LOGS");
@@ -171,13 +172,8 @@ public class UserServiceImpl implements UserService {
     }
 
 
-    private void sendOTP(String email) {
+    private void sendOTP(String email, String otp) {
         String subject = "Please verify your account!";
-        int otp = generateSixDigitCode();
-
-        // Store OTP in Redis with 3 minutes expiration
-        redisTemplate.opsForValue().set(email, String.valueOf(otp), 3, TimeUnit.MINUTES);
-
         Context context = new Context();
         context.setVariable("otp", String.valueOf(otp));
         String html = templateEngine.process("OtpEmailTemplate", context);
