@@ -1,29 +1,20 @@
 package com.delivery.user_service.Service.impl;
 
+import com.delivery.user_service.DTOs.RequestDTOs.SendEmailRequestDTO;
 import com.delivery.user_service.DTOs.RequestDTOs.UserSignUpRequestDTO;
 import com.delivery.user_service.DTOs.ResponseDTOs.CommonMessageResponseDTO;
 import com.delivery.user_service.Models.Users;
 import com.delivery.user_service.Repositories.UserRepository;
 import com.delivery.user_service.Service.UserService;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.InternetAddress;
-import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
-import org.thymeleaf.context.Context;
-import org.thymeleaf.spring6.SpringTemplateEngine;
+import org.springframework.web.reactive.function.client.WebClient;
 
-import java.io.UnsupportedEncodingException;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -37,16 +28,10 @@ public class UserServiceImpl implements UserService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
-    private CacheManager cacheManager;
-
-    @Autowired
-    private SpringTemplateEngine templateEngine;
-
-    @Autowired
-    private JavaMailSender mailSender;
-
-    @Autowired
     private StringRedisTemplate redisTemplate;
+
+    @Autowired
+    private WebClient webClient;
 
     @Override
     public ResponseEntity<CommonMessageResponseDTO> createUser(UserSignUpRequestDTO signUpRequestDTO) {
@@ -78,19 +63,40 @@ public class UserServiceImpl implements UserService {
         users.setUserEmailId(signUpRequestDTO.getEmailId());
         users.setPhoneNumber(signUpRequestDTO.getPhoneNumber());
 
-        Users savedUser = userRepository.save(users);
         int otp = generateSixDigitCode();
 
-        // Store OTP in Redis with 3 minutes expiration
-        redisTemplate.opsForValue().set(savedUser.getUserEmailId(), String.valueOf(otp), 3, TimeUnit.MINUTES);
-        try {
+        SendEmailRequestDTO sendEmailRequestDTO = new SendEmailRequestDTO();
+
+        sendEmailRequestDTO.setSenderEmail(users.getUserEmailId());
+        sendEmailRequestDTO.setMailPurpose("SIGNIN_OTP");
+        sendEmailRequestDTO.setUtil(String.valueOf(otp));
+
+        Boolean result = false;
+
+        try{
+            result = webClient.post()
+                    .uri("http://localhost:8080/api/notification/sendEmail")
+                    .bodyValue(sendEmailRequestDTO)
+                    .retrieve()
+                    .bodyToMono(boolean.class)
+                    .block();
+        }catch (Exception e){
+            log.error("failed to call notification service: {}", e.getMessage());
+        }
+
+        if (Boolean.TRUE.equals(result)) {
+            Users savedUser = userRepository.save(users);
+            try{
+                redisTemplate.opsForValue().set(savedUser.getUserEmailId(), String.valueOf(otp), 3, TimeUnit.MINUTES);
+            }catch (Exception e){
+                log.error("Failed to cache OTP: {}", e.getMessage());
+            }
             responseDTO.setResponseCode("VOTP");
             responseDTO.setMessage("Verification OTP sent Successfully");
             responseDTO.setSuccess(true);
             return new ResponseEntity<>(responseDTO, HttpStatus.OK);
-        } catch (Exception e) {
-            log.error("failed to send OTP: {}", e.getMessage());
-            userRepository.deleteById(savedUser.getId());
+        }else {
+            log.error("failed to send OTP");
             responseDTO.setResponseCode("FOTP");
             responseDTO.setMessage("Failed to send OTP");
             responseDTO.setSuccess(false);
@@ -157,12 +163,12 @@ public class UserServiceImpl implements UserService {
             responseDTO.setResponseCode("LOGS");
             return new ResponseEntity<>(responseDTO, HttpStatus.FORBIDDEN);
         }
-        try{
+        try {
             responseDTO.setMessage("User logged in successfully");
             responseDTO.setSuccess(true);
             responseDTO.setResponseCode("LOGS");
             return new ResponseEntity<>(responseDTO, HttpStatus.OK);
-        }catch (Exception e){
+        } catch (Exception e) {
             responseDTO.setMessage("failed to login");
             responseDTO.setSuccess(false);
             responseDTO.setResponseCode("LOGF");
@@ -171,49 +177,9 @@ public class UserServiceImpl implements UserService {
 
     }
 
-
-    private void sendOTP(String email, String otp) {
-        String subject = "Please verify your account!";
-        Context context = new Context();
-        context.setVariable("otp", String.valueOf(otp));
-        String html = templateEngine.process("OtpEmailTemplate", context);
-
-        try {
-            sendEmail(email, subject, null, html);
-        } catch (Exception e) {
-            log.error("Error occurred while sending OTP: {}", e.getMessage());
-            throw new RuntimeException(e);
-        }
-    }
-
-
     public int generateSixDigitCode() {
         Random random = new Random();
         return 100000 + random.nextInt(900000); // generates a number between 100000 and 999999
-    }
-
-    public void sendEmail(String toEmail, String subject, String body, String html) throws UnsupportedEncodingException {
-
-        String senderName = "Delivery.com";
-        String fromEmail = "shubahmverma007@gmail.com";
-
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true);
-
-            helper.setFrom(new InternetAddress(fromEmail, senderName));
-            helper.setTo(toEmail);
-            helper.setSubject(subject);
-            if (html != null) {
-                helper.setText(html, true);
-            } else {
-                helper.setText(body, true);
-            }
-
-            mailSender.send(message);
-        } catch (MessagingException e) {
-            throw new RuntimeException(e);
-        }
     }
 
 
