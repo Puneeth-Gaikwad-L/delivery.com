@@ -31,7 +31,7 @@ public class UserServiceImpl implements UserService {
     private StringRedisTemplate redisTemplate;
 
     @Autowired
-    private WebClient webClient;
+    private WebClient.Builder webClientBuilder;
 
     @Override
     public ResponseEntity<CommonMessageResponseDTO> createUser(UserSignUpRequestDTO signUpRequestDTO) {
@@ -74,8 +74,8 @@ public class UserServiceImpl implements UserService {
         Boolean result = false;
 
         try{
-            result = webClient.post()
-                    .uri("http://localhost:8080/api/notification/sendEmail")
+            result = webClientBuilder.build().post()
+                    .uri("http://notification-service/api/notification/sendEmail")
                     .bodyValue(sendEmailRequestDTO)
                     .retrieve()
                     .bodyToMono(boolean.class)
