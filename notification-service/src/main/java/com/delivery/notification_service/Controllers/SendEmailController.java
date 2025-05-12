@@ -16,7 +16,7 @@ public class SendEmailController {
     SendEmailService sendEmailService;
 
     @PostMapping("/sendEmail")
-    public void sendEmail(@RequestBody SendEmailRequestDTO requestDTO){
-        sendEmailService.sendEmail(requestDTO);
+    public boolean sendEmail(@RequestBody SendEmailRequestDTO requestDTO){
+        return sendEmailService.sendEmail(requestDTO);
     }
 }

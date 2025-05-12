@@ -26,10 +26,10 @@ public class SendEmailServiceImpl implements SendEmailService {
     private JavaMailSender mailSender;
 
     @Override
-    public void sendEmail(SendEmailRequestDTO requestDTO) {
+    public boolean sendEmail(SendEmailRequestDTO requestDTO) {
         if (requestDTO.getSenderEmail().isEmpty()) {
             log.info("Failed to send Email: please specify sender email");
-            return;
+            return false;
         }
 
         if (requestDTO.getMailPurpose().isEmpty() && requestDTO.getSubject().isEmpty()){
@@ -71,6 +71,7 @@ public class SendEmailServiceImpl implements SendEmailService {
             log.error("Error occurred while sending OTP: {}", e.getMessage());
             throw new RuntimeException(e);
         }
+        return true;
     }
 
     public void sendEmail(String toEmail, String subject, String body, String html) throws UnsupportedEncodingException {
