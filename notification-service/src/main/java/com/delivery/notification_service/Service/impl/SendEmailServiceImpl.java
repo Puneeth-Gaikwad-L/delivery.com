@@ -59,6 +59,10 @@ public class SendEmailServiceImpl implements SendEmailService {
                 context.setVariable("otp", String.valueOf(requestDTO.getUtil()));
                 html = templateEngine.process("OtpEmailTemplate", context);
                 break;
+            case "Welcome":
+                subject = "Hey " + requestDTO.getUtil().split(" ")[0] + ", Welcome to Delivery.com 🍔🍕";
+                html = templateEngine.process("AccountActivationTemplate.html", context);
+                break;
         }
 
         if (body == null) {

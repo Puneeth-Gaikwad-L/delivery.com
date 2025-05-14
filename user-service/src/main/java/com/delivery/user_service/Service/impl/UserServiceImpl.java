@@ -3,6 +3,7 @@ package com.delivery.user_service.Service.impl;
 import com.delivery.user_service.DTOs.RequestDTOs.SendEmailRequestDTO;
 import com.delivery.user_service.DTOs.RequestDTOs.UserSignUpRequestDTO;
 import com.delivery.user_service.DTOs.ResponseDTOs.CommonMessageResponseDTO;
+import com.delivery.user_service.Events.EmailVerifiedEvent;
 import com.delivery.user_service.Models.Users;
 import com.delivery.user_service.Repositories.UserRepository;
 import com.delivery.user_service.Service.UserService;
@@ -12,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -32,6 +34,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private WebClient.Builder webClientBuilder;
+
+    @Autowired
+    private KafkaTemplate<String, EmailVerifiedEvent> kafkaTemplate;
 
     @Override
     public ResponseEntity<CommonMessageResponseDTO> createUser(UserSignUpRequestDTO signUpRequestDTO) {
@@ -73,29 +78,29 @@ public class UserServiceImpl implements UserService {
 
         Boolean result = false;
 
-        try{
+        try {
             result = webClientBuilder.build().post()
                     .uri("http://notification-service/api/notification/sendEmail")
                     .bodyValue(sendEmailRequestDTO)
                     .retrieve()
                     .bodyToMono(boolean.class)
                     .block();
-        }catch (Exception e){
+        } catch (Exception e) {
             log.error("failed to call notification service: {}", e.getMessage());
         }
 
         if (Boolean.TRUE.equals(result)) {
             Users savedUser = userRepository.save(users);
-            try{
+            try {
                 redisTemplate.opsForValue().set(savedUser.getUserEmailId(), String.valueOf(otp), 3, TimeUnit.MINUTES);
-            }catch (Exception e){
+            } catch (Exception e) {
                 log.error("Failed to cache OTP: {}", e.getMessage());
             }
             responseDTO.setResponseCode("VOTP");
             responseDTO.setMessage("Verification OTP sent Successfully");
             responseDTO.setSuccess(true);
             return new ResponseEntity<>(responseDTO, HttpStatus.OK);
-        }else {
+        } else {
             log.error("failed to send OTP");
             responseDTO.setResponseCode("FOTP");
             responseDTO.setMessage("Failed to send OTP");
@@ -131,7 +136,9 @@ public class UserServiceImpl implements UserService {
             redisTemplate.delete(email);
             Users user = usersOptional.get();
             user.setPhoneNumberVerified(true);
-            userRepository.save(user);
+            Users savedUser = userRepository.save(user);
+//            trigger an event for email verification
+            kafkaTemplate.send("user-email-verified", new EmailVerifiedEvent(savedUser.getUserEmailId(), savedUser.getUserName()));
             responseDTO.setSuccess(true);
             responseDTO.setMessage("OTP verified successfully");
             responseDTO.setResponseCode("VOTPSUCC");
@@ -141,6 +148,26 @@ public class UserServiceImpl implements UserService {
             responseDTO.setMessage("Invalid OTP");
             responseDTO.setResponseCode("INVOTP");
             return new ResponseEntity<>(responseDTO, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private void sendWelcomeEmail(Users savedUser) {
+        SendEmailRequestDTO sendEmailRequestDTO = new SendEmailRequestDTO();
+
+        sendEmailRequestDTO.setSenderEmail(savedUser.getUserEmailId());
+        sendEmailRequestDTO.setMailPurpose("WELCOME");
+        try {
+            webClientBuilder.build().post()
+                    .uri("http://notification-service/api/notification/sendEmail")
+                    .bodyValue(sendEmailRequestDTO)
+                    .retrieve()
+                    .bodyToMono(boolean.class)
+                    .subscribe(
+                            success -> log.info("Email sent successfully"),
+                            error -> log.error("Failed to send email: {}", error.getMessage())
+                    );
+        } catch (Exception e) {
+            log.error("failed to call notification service: {}", e.getMessage());
         }
     }
 
