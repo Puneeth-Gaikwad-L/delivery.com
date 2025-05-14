@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class WelcomeEmailListener {
+public class EmailNotificationListener {
 
     private final SendEmailService sendEmailService;
 
@@ -20,7 +20,17 @@ public class WelcomeEmailListener {
         log.info("Received event for welcome email notification for: {}", event.getUserEmail());
         SendEmailRequestDTO emailRequestDTO = new SendEmailRequestDTO();
         emailRequestDTO.setSenderEmail(event.getUserEmail());
-        emailRequestDTO.setMailPurpose("Welcome");
+        emailRequestDTO.setMailPurpose("WELCOME");
+        emailRequestDTO.setUtil(event.getUtil());
+        sendEmailService.sendEmail(emailRequestDTO);
+    }
+
+    @KafkaListener(topics = "user-email-verification-otp", groupId = "notification-group")
+    public void handelEmailNotificationForOTP(EmailVerifiedEvent event){
+        log.info("Received event for sending sigIn OTP email notification for: {}", event.getUserEmail());
+        SendEmailRequestDTO emailRequestDTO = new SendEmailRequestDTO();
+        emailRequestDTO.setSenderEmail(event.getUserEmail());
+        emailRequestDTO.setMailPurpose("SIGNIN_OTP");
         emailRequestDTO.setUtil(event.getUtil());
         sendEmailService.sendEmail(emailRequestDTO);
     }

@@ -1,6 +1,8 @@
 package com.delivery.user_service.Controllers;
 
+import com.delivery.user_service.DTOs.RequestDTOs.ResendOtpRequestDto;
 import com.delivery.user_service.DTOs.RequestDTOs.UserSignUpRequestDTO;
+import com.delivery.user_service.DTOs.RequestDTOs.VerifyOtpRequestDto;
 import com.delivery.user_service.DTOs.ResponseDTOs.CommonMessageResponseDTO;
 import com.delivery.user_service.Service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,12 +21,17 @@ public class UserController {
     }
 
     @PostMapping("/verify")
-    public ResponseEntity<CommonMessageResponseDTO> verifyOTP(@RequestParam("email") String email, @RequestParam("otp") String otp){
-        return userService.verifyOtp(email, otp);
+    public ResponseEntity<CommonMessageResponseDTO> verifyOTP(@RequestBody VerifyOtpRequestDto requestDto){
+        return userService.verifyOtp(requestDto);
     }
 
     @PostMapping("/login")
     public ResponseEntity<CommonMessageResponseDTO> logIn(@RequestParam("email")String email){
         return userService.login(email);
+    }
+
+    @PostMapping("/resendOtp")
+    public ResponseEntity<CommonMessageResponseDTO> resendOtp(@RequestBody ResendOtpRequestDto resendOtpRequestDto){
+        return userService.resendOtp(resendOtpRequestDto);
     }
 }

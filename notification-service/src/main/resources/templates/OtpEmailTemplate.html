@@ -52,6 +52,12 @@
             color: #ff6666;
             font-size: 14px;
         }
+        .footer{
+        padding: 2px;
+        font-size: 10px;
+        border-radius: 3px;
+        color: grey;
+        }
     </style>
 </head>
 <body>
@@ -63,6 +69,7 @@
     <p>to validate your email address</p>
     <div class="otp" th:text="${otp}"></div>
     <div class="validity">Valid for 3 minutes only</div>
+    <footer class="footer">Note: This is an automated message. Please do not reply. If you are not the intended recipient, kindly disregard this email.</footer>
 </div>
 </body>
 </html>

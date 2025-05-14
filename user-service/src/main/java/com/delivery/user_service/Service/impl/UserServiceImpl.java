@@ -1,7 +1,8 @@
 package com.delivery.user_service.Service.impl;
 
-import com.delivery.user_service.DTOs.RequestDTOs.SendEmailRequestDTO;
+import com.delivery.user_service.DTOs.RequestDTOs.ResendOtpRequestDto;
 import com.delivery.user_service.DTOs.RequestDTOs.UserSignUpRequestDTO;
+import com.delivery.user_service.DTOs.RequestDTOs.VerifyOtpRequestDto;
 import com.delivery.user_service.DTOs.ResponseDTOs.CommonMessageResponseDTO;
 import com.delivery.user_service.Events.EmailVerifiedEvent;
 import com.delivery.user_service.Models.Users;
@@ -70,57 +71,38 @@ public class UserServiceImpl implements UserService {
 
         int otp = generateSixDigitCode();
 
-        SendEmailRequestDTO sendEmailRequestDTO = new SendEmailRequestDTO();
-
-        sendEmailRequestDTO.setSenderEmail(users.getUserEmailId());
-        sendEmailRequestDTO.setMailPurpose("SIGNIN_OTP");
-        sendEmailRequestDTO.setUtil(String.valueOf(otp));
-
-        Boolean result = false;
-
         try {
-            result = webClientBuilder.build().post()
-                    .uri("http://notification-service/api/notification/sendEmail")
-                    .bodyValue(sendEmailRequestDTO)
-                    .retrieve()
-                    .bodyToMono(boolean.class)
-                    .block();
+//            caching the OTP
+            redisTemplate.opsForValue().set(users.getUserEmailId(), String.valueOf(otp), 3, TimeUnit.MINUTES);
         } catch (Exception e) {
-            log.error("failed to call notification service: {}", e.getMessage());
-        }
-
-        if (Boolean.TRUE.equals(result)) {
-            Users savedUser = userRepository.save(users);
-            try {
-                redisTemplate.opsForValue().set(savedUser.getUserEmailId(), String.valueOf(otp), 3, TimeUnit.MINUTES);
-            } catch (Exception e) {
-                log.error("Failed to cache OTP: {}", e.getMessage());
-            }
-            responseDTO.setResponseCode("VOTP");
-            responseDTO.setMessage("Verification OTP sent Successfully");
-            responseDTO.setSuccess(true);
-            return new ResponseEntity<>(responseDTO, HttpStatus.OK);
-        } else {
-            log.error("failed to send OTP");
-            responseDTO.setResponseCode("FOTP");
-            responseDTO.setMessage("Failed to send OTP");
+            log.error("Failed to cache OTP: {}", e.getMessage());
+            responseDTO.setResponseCode("FOTP_CACHE");
+            responseDTO.setMessage("We're experiencing a temporary issue. Please try again later.");
             responseDTO.setSuccess(false);
             return new ResponseEntity<>(responseDTO, HttpStatus.INTERNAL_SERVER_ERROR);
         }
+
+//        trigger an event for sending the OTP
+        kafkaTemplate.send("user-email-verification-otp", new EmailVerifiedEvent(users.getUserEmailId(), String.valueOf(otp)));
+        userRepository.save(users);
+        responseDTO.setResponseCode("VOTP");
+        responseDTO.setMessage("We've sent an OTP to your email. Please check your inbox.");
+        responseDTO.setSuccess(true);
+        return new ResponseEntity<>(responseDTO, HttpStatus.OK);
     }
 
     @Override
-    public ResponseEntity<CommonMessageResponseDTO> verifyOtp(String email, String otp) {
+    public ResponseEntity<CommonMessageResponseDTO> verifyOtp(VerifyOtpRequestDto requestDto) {
         CommonMessageResponseDTO responseDTO = new CommonMessageResponseDTO();
 
-        Optional<Users> usersOptional = userRepository.findByUserEmailId(email);
+        Optional<Users> usersOptional = userRepository.findByUserEmailId(requestDto.getEmail());
         if (usersOptional.isEmpty()) {
             responseDTO.setSuccess(false);
             responseDTO.setMessage("No user account found with the provided email");
             responseDTO.setResponseCode("OTPEXP");
             return new ResponseEntity<>(responseDTO, HttpStatus.NOT_FOUND);
         }
-        String cachedOtp = redisTemplate.opsForValue().get(email);
+        String cachedOtp = redisTemplate.opsForValue().get(requestDto.getEmail());
 
         if (cachedOtp == null) {
             responseDTO.setSuccess(false);
@@ -129,16 +111,18 @@ public class UserServiceImpl implements UserService {
             return new ResponseEntity<>(responseDTO, HttpStatus.NOT_FOUND);
         }
 
-        if (cachedOtp.equals(otp)) {
+        if (cachedOtp.equals(requestDto.getOtp())) {
             // Remove OTP after successful verification
             log.info("cashed OTP: {}", cachedOtp);
-            log.info("OTP entered by user: {}", otp);
-            redisTemplate.delete(email);
+            log.info("OTP entered by user: {}", requestDto.getOtp());
+            redisTemplate.delete(requestDto.getEmail());
             Users user = usersOptional.get();
             user.setPhoneNumberVerified(true);
             Users savedUser = userRepository.save(user);
-//            trigger an event for email verification
-            kafkaTemplate.send("user-email-verified", new EmailVerifiedEvent(savedUser.getUserEmailId(), savedUser.getUserName()));
+            if(!requestDto.isLogin()){
+//              trigger an event for welcome email
+                kafkaTemplate.send("user-email-verified", new EmailVerifiedEvent(savedUser.getUserEmailId(), savedUser.getUserName()));
+            }
             responseDTO.setSuccess(true);
             responseDTO.setMessage("OTP verified successfully");
             responseDTO.setResponseCode("VOTPSUCC");
@@ -148,26 +132,6 @@ public class UserServiceImpl implements UserService {
             responseDTO.setMessage("Invalid OTP");
             responseDTO.setResponseCode("INVOTP");
             return new ResponseEntity<>(responseDTO, HttpStatus.BAD_REQUEST);
-        }
-    }
-
-    private void sendWelcomeEmail(Users savedUser) {
-        SendEmailRequestDTO sendEmailRequestDTO = new SendEmailRequestDTO();
-
-        sendEmailRequestDTO.setSenderEmail(savedUser.getUserEmailId());
-        sendEmailRequestDTO.setMailPurpose("WELCOME");
-        try {
-            webClientBuilder.build().post()
-                    .uri("http://notification-service/api/notification/sendEmail")
-                    .bodyValue(sendEmailRequestDTO)
-                    .retrieve()
-                    .bodyToMono(boolean.class)
-                    .subscribe(
-                            success -> log.info("Email sent successfully"),
-                            error -> log.error("Failed to send email: {}", error.getMessage())
-                    );
-        } catch (Exception e) {
-            log.error("failed to call notification service: {}", e.getMessage());
         }
     }
 
@@ -190,21 +154,50 @@ public class UserServiceImpl implements UserService {
             responseDTO.setResponseCode("LOGS");
             return new ResponseEntity<>(responseDTO, HttpStatus.FORBIDDEN);
         }
+        int otp = generateSixDigitCode();
+
         try {
-            responseDTO.setMessage("User logged in successfully");
-            responseDTO.setSuccess(true);
-            responseDTO.setResponseCode("LOGS");
-            return new ResponseEntity<>(responseDTO, HttpStatus.OK);
+//            caching the OTP
+            redisTemplate.opsForValue().set(user.getUserEmailId(), String.valueOf(otp), 3, TimeUnit.MINUTES);
         } catch (Exception e) {
-            responseDTO.setMessage("failed to login");
+            log.error("Failed to cache login OTP: {}", e.getMessage());
+            responseDTO.setResponseCode("FOTP_CACHE");
+            responseDTO.setMessage("We're experiencing a temporary issue. Please try again later.");
             responseDTO.setSuccess(false);
-            responseDTO.setResponseCode("LOGF");
-            return new ResponseEntity<>(responseDTO, HttpStatus.OK);
+            return new ResponseEntity<>(responseDTO, HttpStatus.INTERNAL_SERVER_ERROR);
         }
+        kafkaTemplate.send("user-email-verification-otp", new EmailVerifiedEvent(user.getUserEmailId(), String.valueOf(otp)));
+        responseDTO.setMessage("We've sent an OTP to your email. Please check your inbox.");
+        responseDTO.setSuccess(true);
+        responseDTO.setResponseCode("LOGS");
+        return new ResponseEntity<>(responseDTO, HttpStatus.OK);
 
     }
 
+    @Override
+    public ResponseEntity<CommonMessageResponseDTO> resendOtp(ResendOtpRequestDto resendOtpRequestDto) {
+        log.info("Request for Resending the OTP for: {}", resendOtpRequestDto.getEmail());
+        CommonMessageResponseDTO responseDTO = new CommonMessageResponseDTO();
+        int otp = generateSixDigitCode();
+        try {
+//            caching the OTP
+            redisTemplate.opsForValue().set(resendOtpRequestDto.getEmail(), String.valueOf(otp), 3, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            log.error("Failed to cache login OTP: {}", e.getMessage());
+            responseDTO.setResponseCode("FOTP_CACHE");
+            responseDTO.setMessage("We're experiencing a temporary issue. Please try again later.");
+            responseDTO.setSuccess(false);
+            return new ResponseEntity<>(responseDTO, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        kafkaTemplate.send("user-email-verification-otp", new EmailVerifiedEvent(resendOtpRequestDto.getEmail(), String.valueOf(otp)));
+        responseDTO.setResponseCode("VOTP");
+        responseDTO.setMessage("We've sent an OTP to your email. Please check your inbox.");
+        responseDTO.setSuccess(true);
+        return new ResponseEntity<>(responseDTO, HttpStatus.OK);
+    }
+
     public int generateSixDigitCode() {
+        log.info("Generating new OTP");
         Random random = new Random();
         return 100000 + random.nextInt(900000); // generates a number between 100000 and 999999
     }
