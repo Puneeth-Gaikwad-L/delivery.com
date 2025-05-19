@@ -1,4 +1,4 @@
-package com.delivery.food_service.Models;
+package com.delivery.order_service.Models;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
