@@ -31,6 +31,6 @@ client.start(error => {
   if (error) {
     console.error('Eureka registration failed:', error);
   } else {
-    console.log(cli.bgGreenBright("'Service registered with Eureka"));
+    console.log(cli.bgGreenBright("Service registered with Eureka"));
   }
 });

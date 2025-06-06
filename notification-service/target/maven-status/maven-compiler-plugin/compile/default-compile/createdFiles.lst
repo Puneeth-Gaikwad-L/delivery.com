@@ -1,1 +1,6 @@
+com\delivery\notification_service\DTOs\RequestDTO\SendEmailRequestDto.class
+com\delivery\notification_service\Controller\SendEmailController.class
 com\delivery\notification_service\NotificationServiceApplication.class
+com\delivery\notification_service\Service\SendEmailService.class
+com\delivery\notification_service\Exceptions\FailedToSendMailException.class
+com\delivery\notification_service\Service\impl\SendEmailServiceImpl.class

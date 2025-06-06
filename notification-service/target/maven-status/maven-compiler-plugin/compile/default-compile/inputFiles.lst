@@ -1,1 +1,6 @@
+C:\Users\PuneethGaikwadL\IdeaProjects\delivery.com-microservies\notification-service\src\main\java\com\delivery\notification_service\Controller\SendEmailController.java
+C:\Users\PuneethGaikwadL\IdeaProjects\delivery.com-microservies\notification-service\src\main\java\com\delivery\notification_service\DTOs\RequestDTO\SendEmailRequestDto.java
+C:\Users\PuneethGaikwadL\IdeaProjects\delivery.com-microservies\notification-service\src\main\java\com\delivery\notification_service\Exceptions\FailedToSendMailException.java
 C:\Users\PuneethGaikwadL\IdeaProjects\delivery.com-microservies\notification-service\src\main\java\com\delivery\notification_service\NotificationServiceApplication.java
+C:\Users\PuneethGaikwadL\IdeaProjects\delivery.com-microservies\notification-service\src\main\java\com\delivery\notification_service\Service\impl\SendEmailServiceImpl.java
+C:\Users\PuneethGaikwadL\IdeaProjects\delivery.com-microservies\notification-service\src\main\java\com\delivery\notification_service\Service\SendEmailService.java
