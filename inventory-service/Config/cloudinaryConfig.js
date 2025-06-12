@@ -6,4 +6,43 @@ cloudinary.config({
   api_secret: 'yg-P6GcbAQc3ez6PhCL0lzX1f74',
 });
 
-module.exports = cloudinary;
+
+// Upload function with predefined settings
+const uploadImage = async (fileBuffer, mimetype, options = {}) => {
+    try {
+        // Convert buffer to base64
+        const fileStr = `data:${mimetype};base64,${fileBuffer.toString('base64')}`;
+        
+        // Default upload options
+        const defaultOptions = {
+            folder: 'categories',
+            resource_type: 'auto',
+            transformation: [
+                { width: 500, height: 500, crop: 'fill' },
+                { quality: 'auto' }
+            ],
+            ...options // Merge with custom options
+        };
+        
+        const uploadResponse = await cloudinary.uploader.upload(fileStr, defaultOptions);
+        return uploadResponse;
+    } catch (error) {
+        throw new Error(`Cloudinary upload failed: ${error.message}`);
+    }
+};
+
+// Delete image function
+const deleteImage = async (publicId) => {
+    try {
+        const result = await cloudinary.uploader.destroy(publicId);
+        return result;
+    } catch (error) {
+        throw new Error(`Cloudinary delete failed: ${error.message}`);
+    }
+};
+
+module.exports = {
+    cloudinary,
+    uploadImage,
+    deleteImage
+};
