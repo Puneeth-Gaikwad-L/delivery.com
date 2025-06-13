@@ -1,9 +1,9 @@
-const mongoose = require("mongoose")
-const clc = require('cli-color')
+const mongoose = require("mongoose");
+const Logger = require("./logger");
 
 mongoose.connect(process.env.MONGO_URI).then(() => {
-    console.log(clc.bgGreen("MongoDb connected successfully"));
+    Logger.info("MongoDb connected successfully");
 }).catch((err)=>{
-    console.log(clc.redBright(err));
+    Logger.error(`Error while connection to DataBase: ${err}`);
     
 })

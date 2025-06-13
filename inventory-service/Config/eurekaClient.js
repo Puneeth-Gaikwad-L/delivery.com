@@ -1,6 +1,7 @@
 // eureka-client.js
 const { Eureka } = require('eureka-js-client');
 const cli = require("cli-color");
+const Logger = require('./logger');
 
 const client = new Eureka({
   instance: {
@@ -29,8 +30,8 @@ const client = new Eureka({
 // Start the client
 client.start(error => {
   if (error) {
-    console.error('Eureka registration failed:', error);
+    Logger.error(`Eureka registration failed: ${error}`);
   } else {
-    console.log(cli.bgGreenBright("Service registered with Eureka"));
+    Logger.info("Service registered with Eureka");
   }
 });

@@ -1,5 +1,6 @@
 const express = require('express')
 const cli = require('cli-color')
+const Logger = require('./Config/logger')
 require('./Config/eurekaClient');
 require("dotenv").config()
 
@@ -18,5 +19,5 @@ app.get('/', (req, res) => {
 app.use('/api/inventory', InventoryRouter)
 
 app.listen(PORT, ()=>{
-    console.log(cli.yellowBright(`Inventory server is running on port ${PORT}`));
+    Logger.info(`Inventory server is running on port ${PORT}`);
 })

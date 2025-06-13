@@ -1,24 +1,24 @@
 const cli = require("cli-color");
 const InventorySchema = require("../Schema/InventorySchema");
+const Logger = require("../Config/logger");
 
 const fetchCategories = async () => {
-  console.log(cli.blueBright("Request received at Service!"));
+  Logger.info("Request received at Service for fetching categories!");
   try {
     const item = await InventorySchema.find();
-    console.log(cli.bgGreenBright("categories list fetched successfully"));
+    Logger.info("categories list fetched successfully");
     return item;
   } catch (err) {
-    console.log(
-      cli.yellowBright("Error occured while fetching categories Data: " + err)
-    );
+    Logger.error(`Error occured while fetching categories Data: ${err}`);
   }
 };
 
 // In your InventoryService file
 const updateCategory = async (id, updateData) => {
-  console.log(cli.blueBright("Update request received:"), updateData);
+  Logger.info(`Update request received: ${updateData}`);
   try {
     if (!id) {
+      Logger.error("Category ID is required for update")
       throw new Error("Category ID is required for update");
     }
 
@@ -32,12 +32,10 @@ const updateCategory = async (id, updateData) => {
       throw new Error("Category not found");
     }
 
-    console.log(cli.bgGreenBright("Category updated successfully"));
+    Logger.info("Category updated successfully");
     return updatedCategory;
   } catch (err) {
-    console.log(
-      cli.yellowBright("Error occurred while updating category: " + err)
-    );
+    Logger.error(`Error occurred while updating category: ${err}`);
     throw err;
   }
 };

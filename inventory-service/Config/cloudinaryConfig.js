@@ -1,3 +1,5 @@
+const Logger = require('./logger');
+
 const cloudinary = require('cloudinary').v2;
 
 cloudinary.config({
@@ -27,6 +29,7 @@ const uploadImage = async (fileBuffer, mimetype, options = {}) => {
         const uploadResponse = await cloudinary.uploader.upload(fileStr, defaultOptions);
         return uploadResponse;
     } catch (error) {
+        Logger.error(`Error while file upload: ${error.message}`)
         throw new Error(`Cloudinary upload failed: ${error.message}`);
     }
 };
@@ -37,6 +40,7 @@ const deleteImage = async (publicId) => {
         const result = await cloudinary.uploader.destroy(publicId);
         return result;
     } catch (error) {
+        Logger.error(`Error while file deletion: ${error.message}`)
         throw new Error(`Cloudinary delete failed: ${error.message}`);
     }
 };

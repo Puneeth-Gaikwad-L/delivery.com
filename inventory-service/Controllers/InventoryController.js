@@ -5,6 +5,7 @@ const multer = require("multer");
 const { uploadImage } = require("../Config/cloudinaryConfig"); // Import cloudinary config
 const { fetchCategories } = require("../Service/InventoryService");
 const { updateCategory } = require("../Service/InventoryService"); // Assuming you have this service
+const Logger = require("../Config/logger");
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
@@ -23,11 +24,7 @@ const upload = multer({
 });
 
 InventoryRouter.get("/category", async (req, res) => {
-    console.log(
-        cli.redBright(
-            "Request Redirected to Inventory Controller! Forwarding to Service..."
-        )
-    );
+    Logger.info("Request received at Inventory Controller! Forwarding to Service...");
     try {
         const categories = await fetchCategories();
         return res.status(200).json({
@@ -35,7 +32,7 @@ InventoryRouter.get("/category", async (req, res) => {
             data: categories,
         });
     } catch (error) {
-        console.log(cli.red("Error fetching categories:", error.message));
+        Logger.error(`Error fetching categories: ${error.message}`);
         return res.status(500).json({
             success: false,
             message: "Failed to fetch categories",
@@ -45,12 +42,7 @@ InventoryRouter.get("/category", async (req, res) => {
 });
 
 InventoryRouter.put("/edit", upload.single("photo"), async (req, res) => {
-    console.log(
-        cli.yellowBright(
-            "Request Redirected to Inventory Controller for category update!"
-        )
-    );
-
+    Logger.info("Request Redirected to Inventory Controller for category update!");
     try {
         const { id, name } = req.body;
 
@@ -73,7 +65,7 @@ InventoryRouter.put("/edit", upload.single("photo"), async (req, res) => {
 
         // Handle photo upload if provided
         if (req.file) {
-            console.log(cli.blue("Uploading image to Cloudinary..."));
+            Logger.info("Uploading image to Cloudinary...");
 
             // Upload to Cloudinary using the config function
             const uploadResponse = await uploadImage(
@@ -82,7 +74,7 @@ InventoryRouter.put("/edit", upload.single("photo"), async (req, res) => {
             );
 
             photoUrl = uploadResponse.secure_url;
-            console.log(cli.green("Image uploaded successfully to Cloudinary"));
+            Logger.info("Image uploaded successfully to Cloudinary");
         }
 
         // Prepare update data
@@ -98,8 +90,7 @@ InventoryRouter.put("/edit", upload.single("photo"), async (req, res) => {
 
         // Update category in database
         const updatedCategory = await updateCategory(id, updateData);
-
-        console.log(cli.green("Category updated successfully"));
+        Logger.info("Category updated successfully");
 
         return res.status(200).json({
             success: true,
@@ -107,7 +98,7 @@ InventoryRouter.put("/edit", upload.single("photo"), async (req, res) => {
             data: updatedCategory,
         });
     } catch (error) {
-        console.log(cli.red("Error updating category:", error.message));
+        Logger.error(`Error updating category: ${error.message}`);
 
         // Handle specific Cloudinary errors
         if (error.name === "CloudinaryError") {
