@@ -1,11 +1,11 @@
 const express = require('express')
 const cli = require('cli-color')
-const Logger = require('./Config/logger')
-require('./Config/eurekaClient');
+const Logger = require('./src/Config/logger')
+require('./src/Config/eurekaClient');
 require("dotenv").config()
 
-const db = require('./Config/db');
-const InventoryRouter = require('./Controllers/InventoryController');
+const db = require('./src/Config/db');
+const InventoryRouter = require('./src/Controllers/InventoryController');
 const app = express();
 const PORT = process.env.PORT || 8001;
 
